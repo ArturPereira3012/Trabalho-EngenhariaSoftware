@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌌 Galactic Bounty Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b0f19; color: #e2e8f0; font-family: 'Courier New', Courier, monospace; }
+        .neon-border { box-shadow: 0 0 10px #06b6d4; }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+
+    <header class="text-center mb-12 border-b border-cyan-500 pb-6 max-w-6xl mx-auto">
+        <h1 class="text-4xl font-bold text-cyan-400 tracking-widest uppercase">GALACTIC BOUNTY HUB</h1>
+        <p class="text-green-400 mt-2">● TERMINAL OPERACIONAL DA GUILDA — ENTRADA MANUAL ATIVADA</p>
+    </header>
+
+    <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <section class="space-y-6">
+            <div class="bg-slate-900 p-6 rounded-lg border border-cyan-900 neon-border">
+                <h2 class="text-lg font-bold text-cyan-400 mb-4 uppercase tracking-wider">Registrar Caçador</h2>
+                <form id="hunterForm" class="space-y-3 text-sm">
+                    <input type="text" id="h_name" required class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300" placeholder="Nome do Caçador">
+                    <input type="url" id="h_avatar" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300" placeholder="URL da Imagem (Em branco = Sem foto)">
+                    <input type="text" id="h_starship" value="Razor Crest" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="h_planet" value="Tatooine" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300">
+                        <input type="number" id="h_firepower" value="12" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300">
+                    </div>
+                    <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold p-2 rounded uppercase transition">Enviar para a Ordem</button>
+                </form>
+            </div>
+
+            <div class="bg-slate-900 p-6 rounded-lg border border-cyan-900 neon-border">
+                <h2 class="text-lg font-bold text-cyan-400 mb-4 uppercase tracking-wider">Emitir Contrato</h2>
+                <form id="bountyForm" class="space-y-3 text-sm">
+                    <input type="text" id="b_target" required class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300" placeholder="Nome do Alvo">
+                    <input type="url" id="b_image" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300" placeholder="URL da Imagem do Alvo (Cole o link aqui)">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="number" id="b_diff" min="1" max="5" value="3" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300" placeholder="Dif (1-5)">
+                        <input type="number" id="b_reward" value="1500" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="b_location" value="Mandalore" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300">
+                        <select id="b_type" class="w-full bg-slate-950 border border-cyan-700 rounded p-2 text-cyan-300">
+                            <option value="Terrestre">Terrestre</option>
+                            <option value="Espacial">Espacial</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-slate-950 font-bold p-2 rounded uppercase transition">Publicar Alvo</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="lg:col-span-2 space-y-8">
+            <div>
+                <h2 class="text-xl font-bold text-cyan-400 mb-4 border-b border-cyan-800 pb-1">⚡ Caçadores Ativos</h2>
+                <div id="huntersList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-red-500 mb-4 border-b border-red-800 pb-1">🎯 Quadro de Procurados</h2>
+                <div id="bountiesList" class="space-y-4"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="max-w-6xl mx-auto mt-8 bg-black border border-green-900 p-4 rounded h-32 overflow-y-auto">
+        <div id="logConsole" class="text-xs text-green-400 space-y-1"></div>
+    </footer>
+
+    <script>
+        const API_URL = window.location.origin.includes("http") ? window.location.origin : "http://127.0.0.1:8000"; 
+        let caçadoresGlobais = [];
+        const FALLBACK_IMG = "https://static-mh.content.disney.io/starwars/assets/navigation/navigation_stars_left-879f9de0bc61.jpg";
+
+        function log(msg, suc = true) {
+            const box = document.getElementById("logConsole");
+            box.innerHTML += `<p class="${suc ? 'text-green-400' : 'text-red-400'}">[${new Date().toLocaleTimeString()}] ${msg}</p>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function carregarHunters() {
+            try {
+                const res = await fetch(`${API_URL}/hunters/`);
+                caçadoresGlobais = await res.json();
+                const container = document.getElementById("huntersList");
+                container.innerHTML = "";
+                
+                caçadoresGlobais.forEach(h => {
+                    const imgUrl = h.avatar_url ? h.avatar_url : FALLBACK_IMG;
+                    container.innerHTML += `
+                        <div class="bg-slate-900 border border-slate-800 p-4 rounded flex items-center justify-between">
+                            <div class="flex gap-3 items-center">
+                                <img src="${imgUrl}" class="w-14 h-14 object-cover rounded border border-cyan-500 bg-slate-950" onerror="this.onerror=null; this.src='${FALLBACK_IMG}';">
+                                <div class="text-xs">
+                                    <h4 class="font-bold text-cyan-300 uppercase">${h.name} (Nível ${h.level})</h4>
+                                    <p class="text-gray-400">Nave: ${h.starship_name}</p>
+                                    <p class="text-green-400 font-bold">💰 ${h.credits_balance} C</p>
+                                </div>
+                            </div>
+                            <button onclick="deletarHunter(${h.id})" class="text-red-500 hover:text-red-400 p-2 text-sm">🗑️</button>
+                        </div>
+                    `;
+                });
+                carregarBounties();
+            } catch (error) {
+                log("Erro de conexão na Holonet.", false);
+            }
+        }
+
+        async function carregarBounties() {
+            try {
+                const res = await fetch(`${API_URL}/bounties/`);
+                const bounties = await res.json();
+                const container = document.getElementById("bountiesList");
+                container.innerHTML = "";
+
+                bounties.forEach(b => {
+                    let acoes = "";
+                    if (b.status === "Disponível") {
+                        let opts = caçadoresGlobais.map(h => `<option value="${h.id}">${h.name}</option>`).join("");
+                        acoes = `
+                            <div class="mt-2 flex gap-2">
+                                <select id="sel_${b.id}" class="bg-slate-950 text-xs text-cyan-400 border border-cyan-800 rounded p-1">${opts}</select>
+                                <button onclick="designar(${b.id})" class="bg-yellow-600 text-slate-950 font-bold text-xs px-2 py-1 rounded">DESIGNAR</button>
+                            </div>`;
+                    } else if (b.status === "Em Progresso") {
+                        acoes = `<button onclick="combater(${b.id})" class="w-full bg-red-600 text-white font-bold text-xs py-1 rounded mt-2 tracking-widest animate-pulse">🎲 ENFRENTAR</button>`;
+                    } else {
+                        acoes = `<p class="text-green-500 border border-green-800 px-2 py-1 rounded font-bold text-xs mt-2 text-center bg-slate-950">✓ CONTRATO ENCERRADO</p>`;
+                    }
+
+                    const imgUrl = b.target_image_url ? b.target_image_url : FALLBACK_IMG;
+
+                    container.innerHTML += `
+                        <div class="bg-slate-900 border border-slate-800 p-4 rounded flex justify-between items-center">
+                            <div class="flex gap-4 items-center">
+                                <img src="${imgUrl}" class="w-14 h-14 object-cover rounded border border-red-800 bg-slate-950" onerror="this.onerror=null; this.src='${FALLBACK_IMG}';">
+                                <div class="text-xs">
+                                    <h4 class="font-bold text-red-400 uppercase tracking-wider text-sm">${b.target_name}</h4>
+                                    <p class="text-gray-400">Status: <span class="${b.status==='Disponível'?'text-green-400':'text-yellow-500'}">${b.status}</span></p>
+                                    <p class="text-gray-400">Localização: <span class="text-slate-200">${b.planet_location}</span></p>
+                                    <div class="mt-1"><span class="bg-amber-950 text-amber-400 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">${b.bounty_type}</span> <span class="text-yellow-500 ml-1">☠ Dificuldade: ${b.difficulty_rating}/5</span></div>
+                                </div>
+                            </div>
+                            <div class="text-right flex flex-col items-end justify-between h-16">
+                                <p class="text-green-400 font-bold text-sm">💰 Recompensa: ${b.reward_credits}C</p>
+                                ${acoes}
+                                ${b.status === 'Disponível' ? `<button onclick="deletarBounty(${b.id})" class="text-red-500 text-[10px] block hover:underline mt-1">🗑️ Cancelar</button>` : ''}
+                            </div>
+                        </div>`;
+                });
+            } catch (error) {
+                log("Erro ao carregar o quadro de procurados.", false);
+            }
+        }
+
+        async function designar(bId) {
+            const hId = document.getElementById(`sel_${bId}`).value;
+            if(!hId) return alert("Cadastre e selecione um caçador primeiro.");
+            const res = await fetch(`${API_URL}/bounties/${bId}/accept/${hId}`, { method: 'POST' });
+            if(res.ok) { log(`Contrato ${bId} assumido.`); carregarHunters(); }
+        }
+
+        async function combater(bId) {
+            const res = await fetch(`${API_URL}/bounties/${bId}/complete`, { method: 'POST' });
+            const data = await res.json();
+            log(`${data.resultado}: ${data.evento} (${data.dados || ''}) ${data.recompensa || data.consequencia || ''}`, data.resultado === "SUCESSO");
+            carregarHunters();
+        }
+
+        async function deletarHunter(id) {
+            if(confirm("Remover ficha deste caçador?")) {
+                await fetch(`${API_URL}/hunters/${id}`, { method: 'DELETE' });
+                log("Ficha de caçador excluída.", false);
+                carregarHunters();
+            }
+        }
+
+        async function deletarBounty(id) {
+            if(confirm("Remover este contrato permanentemente?")) {
+                await fetch(`${API_URL}/bounties/${id}`, { method: 'DELETE' });
+                log("Contrato removido.", false);
+                carregarHunters();
+            }
+        }
+
+        document.getElementById("hunterForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            await fetch(`${API_URL}/hunters/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById("h_name").value,
+                    avatar_url: document.getElementById("h_avatar").value || null,
+                    current_planet: document.getElementById("h_planet").value,
+                    starship_name: document.getElementById("h_starship").value,
+                    starship_firepower: parseInt(document.getElementById("h_firepower").value)
+                })
+            });
+            document.getElementById("hunterForm").reset();
+            carregarHunters();
+        });
+
+        document.getElementById("bountyForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            await fetch(`${API_URL}/bounties/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target_name: document.getElementById("b_target").value,
+                    target_image_url: document.getElementById("b_image").value || null,
+                    difficulty_rating: parseInt(document.getElementById("b_diff").value),
+                    reward_credits: parseInt(document.getElementById("b_reward").value),
+                    planet_location: document.getElementById("b_location").value,
+                    bounty_type: document.getElementById("b_type").value
+                })
+            });
+            document.getElementById("bountyForm").reset();
+            carregarHunters();
+        });
+
+        carregarHunters();
+    </script>
+</body>
+</html>
